@@ -1,25 +1,29 @@
 ---
 name: session-recall
-description: Synchronize Copilot CLI native sessions into a local session recall index, then search, compare, export context packs, and generate memory graphs. Use for every text conversation, session recall, previous context, similar sessions, context pack, or memory graph.
-allowed-tools: "Read(**) Bash(*) Shell(*) Shell(pwsh:*) powershell"
+description: Build and query a local recall index for the user's own Copilot CLI sessions. Use only when the user asks to recall prior sessions, search session history, compare the current request with past context, export a context pack, or build a memory graph.
+allowed-tools: "powershell"
 ---
 
 # Session Recall
 
-Session Recall 會把 Copilot CLI 的本機 session store 同步到 `~\SessionRecall`，建立可搜尋的本機索引。它適合用來找回過去相似對話、產生 context pack、或輸出 memory graph。
+Session Recall 會把使用者自己的 Copilot CLI session store 同步到 `~\SessionRecall`，建立可搜尋的本機索引。它適合在使用者明確需要時，用來找回過去相似對話、產生 context pack，或輸出 memory graph。
 
-Session Recall synchronizes Copilot CLI's local session store into `~\SessionRecall` and builds a searchable local index. Use it to recall similar past conversations, generate context packs, or output a memory graph.
+Session Recall synchronizes the user's own Copilot CLI session store into `~\SessionRecall` and builds a searchable local index. Use it only when the user explicitly needs prior session recall, context-pack generation, or a memory graph.
 
 ## 觸發時機 / Trigger
 
-當使用者提到以下任一情境時使用本 skill：
+只有當使用者明確提到以下任一情境時，才使用本 skill：
 
-Use this skill when the user mentions any of these needs:
+Use this skill only when the user explicitly mentions one of these needs:
 
 - session recall、previous context、similar sessions、search memory
 - 回想先前對話、查找過去 session、尋找相關上下文
 - sync Copilot session、context pack、memory graph
 - 同步 Copilot session、匯出 context pack、建立記憶關聯圖
+
+不要因為一般聊天、一般程式問題或和 session history 無關的要求而自動執行。
+
+Do not run it for ordinary chat, general coding questions, or requests unrelated to session history.
 
 ## 主要指令 / Main Command
 
@@ -43,9 +47,9 @@ Start with these three fields:
 
 If `context_used=true`, summarize the top 1-2 items from `matched_sessions` as context for the response.
 
-如果 `context_used=false`，不要假裝找到記憶；可簡短說明目前沒有高信心相關 session。
+如果 `context_used=false`，可簡短說明目前沒有高信心相關 session。
 
-If `context_used=false`, do not pretend memory was found. Briefly state that no high-confidence related session was available.
+If `context_used=false`, briefly state that no high-confidence related session was available.
 
 ## 安裝 / Install
 
