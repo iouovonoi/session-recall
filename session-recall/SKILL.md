@@ -61,6 +61,14 @@ If `context_used=true`, summarize the top 1-2 items from `matched_sessions` as c
 
 If `context_used=false`, briefly state that no high-confidence related session was available.
 
+## 驗證 / Validation
+
+在作者本機索引的小型測試中，一次 report query 將建議 context 從 18,382 chars 降到 505 chars。3 筆 benchmark 得到 `hit@1 = hit@5 = 66.7%`。這些數字只代表作者本機資料，不是通用 benchmark。
+
+In a small local validation run, one report query reduced recommended context from 18,382 chars to 505 chars. A 3-query benchmark got `hit@1 = hit@5 = 66.7%`. These numbers are from the author's local data only, not a general benchmark.
+
+Details: `docs/validation.md`
+
 ## 安裝 / Install
 
 如果索引不存在，先請使用者同意，然後執行：
