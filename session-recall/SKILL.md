@@ -1,29 +1,39 @@
 ---
 name: session-recall
-description: Build and query a local recall index for the user's own Copilot CLI sessions. Use only when the user asks to recall prior sessions, search session history, compare the current request with past context, export a context pack, or build a memory graph.
+description: Build and query a local recall index for the user's own Copilot CLI sessions. Use when the user asks for prior-session recall, or when the current conversation has a concrete connection to past work and recalling similar sessions could add useful context or ideas.
 allowed-tools: "powershell"
 ---
 
 # Session Recall
 
-Session Recall 會把使用者自己的 Copilot CLI session store 同步到 `~\SessionRecall`，建立可搜尋的本機索引。它適合在使用者明確需要時，用來找回過去相似對話、產生 context pack，或輸出 memory graph。
+Session Recall 會把使用者自己的 Copilot CLI session store 同步到 `~\SessionRecall`，建立可搜尋的本機索引。它適合在使用者明確要求，或目前對話和過去工作可能有具體連結時，用來找回相似 session、補充想法、產生 context pack，或輸出 memory graph。
 
-Session Recall synchronizes the user's own Copilot CLI session store into `~\SessionRecall` and builds a searchable local index. Use it only when the user explicitly needs prior session recall, context-pack generation, or a memory graph.
+Session Recall synchronizes the user's own Copilot CLI session store into `~\SessionRecall` and builds a searchable local index. Use it when the user explicitly asks for recall, or when the current conversation appears concretely related to past work and similar sessions could add useful context or ideas.
 
 ## 觸發時機 / Trigger
 
-只有當使用者明確提到以下任一情境時，才使用本 skill：
+當出現以下任一情境時使用本 skill：
 
-Use this skill only when the user explicitly mentions one of these needs:
+Use this skill in either of these cases:
+
+1. 使用者明確要求回想、搜尋、同步或匯出過去 session。
+2. 目前對話和過去工作有具體連結，回想相似 session 可能提供有用的背景、替代想法或未完成線索。
+
+1. The user explicitly asks to recall, search, sync, or export prior sessions.
+2. The current conversation has a concrete connection to past work, and similar sessions may provide useful context, alternate ideas, or unfinished threads.
 
 - session recall、previous context、similar sessions、search memory
 - 回想先前對話、查找過去 session、尋找相關上下文
 - sync Copilot session、context pack、memory graph
 - 同步 Copilot session、匯出 context pack、建立記憶關聯圖
 
-不要因為一般聊天、一般程式問題或和 session history 無關的要求而自動執行。
+可以主動觸發，但要有明確理由，例如使用者提到曾經做過的專案、延續前一次設計、想找相似解法、或目前問題可能受益於過去決策脈絡。
 
-Do not run it for ordinary chat, general coding questions, or requests unrelated to session history.
+You may trigger it proactively, but only with a clear reason, such as a project the user worked on before, continuation of a previous design, looking for similar solutions, or a task that may benefit from prior decisions.
+
+不要因為一般聊天、一次性的普通程式問題、或和 session history 沒有明確關係的要求而自動執行。
+
+Do not run it for ordinary chat, one-off general coding questions, or requests with no concrete connection to session history.
 
 ## 主要指令 / Main Command
 
