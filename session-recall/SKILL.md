@@ -1,6 +1,6 @@
 ---
 name: session-recall
-description: Build and query a local recall index for the user's own Copilot CLI sessions. Use when the user asks for prior-session recall, or when the current conversation has a concrete connection to past work and recalling similar sessions could add useful context or ideas.
+description: Let your agent proactively recall local Copilot CLI sessions and reconnect past ideas.
 allowed-tools: "powershell"
 ---
 
