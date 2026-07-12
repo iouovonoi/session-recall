@@ -1,8 +1,8 @@
 # Session Recall 完整參考 / Full Reference
 
-這份文件提供進階使用、輸出欄位、內部設計與排錯說明。安裝與日常使用請先看 [README.md](README.md)。
+這份文件提供進階使用、輸出欄位、內部設計與排錯說明。安裝與日常使用請先看 [../README.md](../README.md)。
 
-This file covers advanced usage, output fields, internals, and troubleshooting. For installation and daily use, start with [README.md](README.md).
+This file covers advanced usage, output fields, internals, and troubleshooting. For installation and daily use, start with [../README.md](../README.md).
 
 ## 安裝細節 / Install Details
 

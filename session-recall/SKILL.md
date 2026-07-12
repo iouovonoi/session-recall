@@ -1,12 +1,7 @@
 ---
 name: session-recall
 description: Synchronize Copilot CLI native sessions into a local session recall index, then search, compare, export context packs, and generate memory graphs. Use for every text conversation, session recall, previous context, similar sessions, context pack, or memory graph.
-allowed-tools:
-    - Read(**)
-    - Bash(*)
-    - Shell(*)
-    - Shell(pwsh:*)
-    - powershell
+allowed-tools: "Read(**) Bash(*) Shell(*) Shell(pwsh:*) powershell"
 ---
 
 # Session Recall
