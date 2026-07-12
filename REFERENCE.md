@@ -1,142 +1,135 @@
-# Session Recall — 完整參考文件 / Full Reference
+# Session Recall 完整參考 / Full Reference
 
-> 一般安裝與日常使用請先看 `README.md`。這份文件是給想深入了解細節、或需要排查問題的人看的。
-> For install & daily use, read `README.md` first. This file is for deeper detail and troubleshooting only.
+這份文件提供進階使用、輸出欄位、內部設計與排錯說明。安裝與日常使用請先看 [README.md](README.md)。
 
-## 安裝細節 / Install details
+This file covers advanced usage, output fields, internals, and troubleshooting. For installation and daily use, start with [README.md](README.md).
 
-第一次使用時，agent 要先說明會做什麼、取得同意才能執行。`install.ps1` 只會做以下事情：
+## 安裝細節 / Install Details
 
-On first use, the agent must explain what it will do and get consent before running. `install.ps1` only does this:
+第一次使用前，agent 應該先說明它會讀取哪些本機資料，並取得你的同意。`install.ps1` 只會建立本機索引與必要資料夾。
 
-| 會做 It will | 不會做 It won't |
+Before first use, the agent should explain what local data it will read and get your consent. `install.ps1` only creates the local index and required folders.
+
+| 會做 / It will | 不會做 / It will not |
 |---|---|
-| 建立 `~/SessionRecall` 資料夾與 SQLite 索引 Create `~/SessionRecall` + SQLite index | 讀取或複製別人的資料 Touch anyone else's data |
-| 從你自己的 `~\.copilot\session-store.db` 匯入最多 200 筆 session Import up to 200 of your own sessions | 上傳任何資料 Upload anything |
-| 安裝排程（僅在加 `-InstallScheduler` 時） Install a schedule (only with `-InstallScheduler`) | 未經同意安裝排程 Install a schedule without consent |
+| 建立 `~\SessionRecall` 與 SQLite 索引 / Create `~\SessionRecall` and a SQLite index | 讀取別人的資料 / Touch anyone else's data |
+| 從你的 `~\.copilot\session-store.db` 匯入最近 session / Import recent sessions from your own `~\.copilot\session-store.db` | 上傳資料 / Upload data |
+| 只有指定 `-InstallScheduler` 時才安裝排程 / Install a schedule only with `-InstallScheduler` | 未經同意安裝背景排程 / Install a schedule without consent |
 
-參數：`-InitialSyncLimit 500`（改匯入數量）、`-SkipInitialSync`（只建空索引）、`-InstallScheduler -EveryMinutes 30`（自動同步）。
+## 可以分享什麼？/ Sharing This Skill
 
-## 分享這個 skill 給別人 / Sharing this skill
-
-| 可以分享 Share | 不要分享 Never share |
+| 可以分享 / Share | 不要分享 / Never share |
 |---|---|
-| `SKILL.md` / `README.md` / `REFERENCE.md` / `docs\` / `install.ps1` / `scripts\*` | `~\SessionRecall\`、`~\CopilotMemory\` |
-| | `~\.copilot\session-store.db`、`~\.copilot\session-state\` |
-| | `~\.copilot-buddy\memory\` |
+| `SKILL.md`, `README.md`, `REFERENCE.md`, `docs\`, `install.ps1`, `scripts\*` | `~\SessionRecall\` |
+| 原始碼與文件 / Source and documentation | `~\.copilot\session-store.db` |
+| | `~\.copilot\session-state\` or other memory stores |
 
-安裝方式：把整個 `session-recall` 資料夾放到 `%USERPROFILE%\.copilot\skills\session-recall`，重開 Copilot CLI，第一次觸發時同意執行 `install.ps1`。
+## 腳本 / Scripts
 
-## 主要腳本 / Scripts
-
-| 檔案 | 用途 |
+| 檔案 / File | 用途 / Purpose |
 |---|---|
-| `memory_tool.py` | 實際邏輯：SQLite/FTS 索引、搜尋、graph、context pack、report、benchmark |
-| `session-recall.ps1` | Windows 包裝腳本，固定 UTF-8 輸出、自動找 Python |
-| `install.ps1` | 初次安裝、匯入既有 session、選擇性安裝排程 |
-| `install-session-recall-scheduler.ps1` | 安裝 Windows 排程工作，定期同步 |
+| `scripts/memory_tool.py` | 核心工具：SQLite/FTS 索引、搜尋、compare、report、graph、context pack / Core tool for SQLite/FTS indexing, search, compare, report, graph, and context packs |
+| `scripts/session-recall.ps1` | Windows wrapper，設定 UTF-8 並呼叫 Python / Windows wrapper that sets UTF-8 and calls Python |
+| `install.ps1` | 初始化索引、可選匯入 session、可選安裝排程 / Initializes the index, optionally imports sessions, optionally installs the schedule |
+| `scripts/install-session-recall-scheduler.ps1` | 安裝 Windows Task Scheduler 工作 / Installs the Windows Task Scheduler job |
 
-## 指令一覽 / Commands at a glance
+## 常用指令 / Commands at a Glance
 
-| 指令 Command | 做什麼 What it does |
+| 指令 / Command | 用途 / What it does |
 |---|---|
-| `init` | 只建立空索引 |
-| `sync-copilot --limit N` | 從 Copilot 原生 session store 匯入 N 筆 session |
-| `sync-copilot --compare "問題"` | 匯入後，順便比對目前問題有沒有相似的過去 session |
-| `sync-copilot --compare "問題" --report` | 同上，再加一份「有沒有省 token」的量化報告，見 `docs/validation.md` |
-| `search "關鍵字"` | 只做搜尋，不重新匯入 |
-| `context-pack "關鍵字"` | 把相關 session 整理成一份可貼回對話的 Markdown |
-| `graph` | 產生 session / topic / entity 的關聯圖 JSON |
-| `benchmark testset.jsonl` | 自測工具，吃固定題庫算命中率，公開發文前用 |
-| `log-event` | 備用管道：讀不到原生 DB 時，先把每一輪對話寫下來 |
+| `init` | 建立本機索引 / Create the local index |
+| `sync-copilot --limit N` | 從 Copilot session store 匯入 N 筆 session / Import N sessions from the Copilot session store |
+| `sync-copilot --compare "query"` | 匯入後比較目前 query 與過去 session / Import and compare the query against past sessions |
+| `sync-copilot --compare "query" --report` | 產生 context 節省量報告 / Generate a context-savings report |
+| `search "query"` | 搜尋本機索引 / Search the local index |
+| `context-pack "query"` | 匯出相關 session 的 Markdown context pack / Export a Markdown context pack |
+| `graph` | 輸出 session/topic/entity 關聯圖 JSON / Output a session/topic/entity graph JSON |
+| `benchmark testset.jsonl` | 用 JSONL 測試集跑本機 benchmark / Run a local benchmark from a JSONL test set |
+| `log-event` | 手動記錄事件，供之後 compact / Manually log events for later compaction |
 
 範例：
 
+Example:
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" sync-copilot --limit 50 --compare "我想找之前談過的 session recall 設計" --compare-limit 5
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" sync-copilot --limit 50 --compare "session recall validation" --compare-limit 5
 ```
 
-## `compare` 回傳欄位 / `compare` result fields
+## `compare` 輸出欄位 / `compare` Result Fields
 
-| 欄位 | 意思 | 可不可以當作已參照的依據 |
+| 欄位 / Field | 意義 / Meaning | 使用建議 / How to use it |
 |---|---|---|
-| `context_used` | 有沒有找到高信心的過去 session | — |
-| `confidence` | 最高命中分數 | — |
-| `matched_sessions` | 高信心相關 session | ✅ 可以引用 |
-| `candidate_sessions` | 低信心候選 | ❌ 只能當提示，不能宣稱已參照 |
-| `fallback_sessions` | 完全沒命中時列出最近幾筆 session | ❌ 僅供人工確認 |
-| `diagnostics` | 索引筆數、query tokens、命中數等除錯資訊 | — |
-| `quality_flags` | 例如 `automation_like_session`＝內部技能執行紀錄，已被降權 | — |
+| `context_used` | 是否找到高信心匹配 / Whether a high-confidence match was found | `true` 時才建議注入 context / Inject context only when true |
+| `confidence` | 最高匹配分數 / Highest match score | 用於粗略排序，不是精準機率 / Useful for rough ranking, not an exact probability |
+| `matched_sessions` | 高信心 session / High-confidence sessions | 可作為 agent context / Good candidates for agent context |
+| `candidate_sessions` | 低信心候選 / Lower-confidence candidates | 可檢查但不建議自動注入 / Inspectable, but avoid automatic injection |
+| `fallback_sessions` | 無匹配時的最近 session / Recent sessions when there is no match | 只作參考 / Reference only |
+| `diagnostics` | token、FTS、fallback 等診斷資訊 / Token, FTS, and fallback diagnostics | 排錯用 / For troubleshooting |
+| `quality_flags` | 例如 `automation_like_session` / Flags such as `automation_like_session` | 代表可能要降低信任 / Indicates lower trust |
 
-## `report` 回傳欄位 / `report` result fields
+## `report` 輸出欄位 / `report` Result Fields
 
-`--report` 必須搭配 `--compare`，否則會直接回傳錯誤（非零結束碼）。
+`--report` 需要搭配 `--compare`。它會估算 raw context 與 recommended context 的大小差異。
 
-| 欄位 | 意思 |
+`--report` requires `--compare`. It estimates the size difference between raw context and recommended context.
+
+| 欄位 / Field | 意義 / Meaning |
 |---|---|
-| `recommended_context` | 建議注入的精簡內容（title/essence/summary/topics/matched_terms/reason），不含完整對話原文 |
-| `recommended_context_truncated` | 是否因超過 `--max-context-chars`（預設 2500）而被裁減 |
-| `metrics.raw_context_chars` / `estimated_raw_tokens` | 原始內容字數與估算 token 數 |
-| `metrics.recommended_context_chars` / `estimated_recommended_tokens` | 建議注入內容字數與估算 token 數 |
-| `metrics.estimated_tokens_saved` / `estimated_savings_percent` | 省下多少；沒命中時一律是 0，不會硬湊數字 |
+| `recommended_context` | 建議注入的精簡 metadata，不含完整 raw turns / Trimmed metadata recommended for injection, without full raw turns |
+| `recommended_context_truncated` | 是否因 `--max-context-chars` 被截斷 / Whether it was trimmed by `--max-context-chars` |
+| `metrics.raw_context_chars` / `estimated_raw_tokens` | 原始內容大小與粗略 token 估算 / Raw content size and rough token estimate |
+| `metrics.recommended_context_chars` / `estimated_recommended_tokens` | 建議內容大小與粗略 token 估算 / Recommended context size and rough token estimate |
+| `metrics.estimated_tokens_saved` / `estimated_savings_percent` | 估計節省量；無匹配時為 0 / Estimated savings; 0 when there is no match |
 
-實測數據與怎麼解讀，看 [`docs/validation.md`](docs/validation.md)。
+token 估算只是 `ceil(chars / 4)`，不是精準 tokenizer。
 
-## 與 session-to-memory 的分工 / vs. session-to-memory
+The token estimate is only `ceil(chars / 4)`. It is not an exact tokenizer.
 
-| 這個做什麼 | 屬於哪個 skill |
-|---|---|
-| 搜尋、比對相似 session、context pack、graph | `session-recall`（這個） |
-| 每日重點整理、決策/偏好/待辦追蹤，給人看 | `session-to-memory` |
-
-## Session JSON 格式 / Session JSON shape
+## Session JSON 格式 / Session JSON Shape
 
 ```json
 {
   "session_id": "20260611-memory-platform-planning",
-  "title": "本地優先 Copilot Memory 平台規劃",
-  "essence": "規劃一個本地保存、可搜尋相似 session、可壓縮上下文並定期產 graph 的 memory 平台。",
-  "summary": "本次討論規劃新平台的 memory 能力...",
-  "topics": "memory,local-first,semantic-search,session-search,knowledge-graph",
-  "entities": "SQLite FTS5,sqlite-vec,LanceDB,Markdown,JSONL,Copilot",
-  "decisions": "以 local-first vault 作為核心,先落地 SQLite FTS5 與文本化儲存",
-  "open_questions": "是否允許 team-shared memory,是否要內建本地 embedding 模型",
-  "content": "對話重點或原始筆記。",
+  "title": "規劃 Copilot Memory",
+  "essence": "討論如何建立本機優先的 session recall 與 context pack 流程",
+  "summary": "整理 memory 索引、搜尋、graph 與 report 的設計方向。",
+  "topics": ["memory", "local-first", "semantic-search", "session-search"],
+  "entities": ["SQLite FTS5", "Markdown", "JSONL", "Copilot"],
+  "decisions": ["使用本機 SQLite FTS5 作為第一版索引"],
+  "open_questions": ["是否需要 team-shared memory"],
+  "content": "conversation notes",
   "importance": 5
 }
 ```
 
-## 輸出資料夾 / Output folders
+## 輸出資料夾 / Output Folders
 
-| 路徑 | 內容 |
+| 路徑 / Path | 內容 / Contents |
 |---|---|
-| `~/SessionRecall/memory.sqlite` | SQLite 索引與 FTS5 |
-| `~/SessionRecall/raw-events/*.jsonl` | 備用 raw event log |
-| `~/SessionRecall/sessions/*.md` | 人可讀的 session 摘要 |
-| `~/SessionRecall/sessions/*.summary.json` | 結構化 session 摘要 |
-| `~/SessionRecall/exports/context-pack-*.md` | 可貼回對話的 context pack |
-| `~/SessionRecall/graph/memory-graph.json` | session / topic / entity 關聯圖 |
+| `~\SessionRecall\memory.sqlite` | SQLite + FTS5 索引 / SQLite + FTS5 index |
+| `~\SessionRecall\raw-events\*.jsonl` | raw event log |
+| `~\SessionRecall\sessions\*.md` | 可閱讀的 session 摘要 / Human-readable session summaries |
+| `~\SessionRecall\sessions\*.summary.json` | session metadata |
+| `~\SessionRecall\exports\context-pack-*.md` | 匯出的 context pack / Exported context packs |
+| `~\SessionRecall\graph\memory-graph.json` | session/topic/entity graph |
 
-## 運作原理（簡述） / How it works (short version)
+## 簡短原理 / How It Works
 
-- 主要資料來源是 Copilot CLI 原生 `~\.copilot\session-store.db`：`sessions` 表給 metadata，`turns` 表給對話原文。
-- `sync-copilot` 把這些轉成本機 Markdown + JSON，並寫入 SQLite FTS5 全文索引。
-- 搜尋時先用 FTS5 找，再用關鍵字重疊補分；中英文都支援，會過濾常見停用詞。
-- 命中結果依分數、重要性、時間排序；高信心放 `matched_sessions`，低信心放 `candidate_sessions`。
-- 看起來像是技能執行紀錄（例如標題含「先讀取 SKILL 文件了解規範」）會被標記 `automation_like_session` 並降權，避免蓋掉真正的人機對話。
-- `log-event` / `compact-events` 是備用管道，只有讀不到原生 DB 時才用。
+- 從 Copilot CLI 的 `~\.copilot\session-store.db` 讀取 session 與 turns。
+- It reads sessions and turns from Copilot CLI's `~\.copilot\session-store.db`.
+- `sync-copilot` 將內容整理成 Markdown、JSON 與 SQLite FTS5 索引。
+- `sync-copilot` turns the content into Markdown, JSON, and a SQLite FTS5 index.
+- `compare` 使用 FTS 與 token overlap 找出相關 session，並只回傳高信心項目作為 `matched_sessions`。
+- `compare` uses FTS and token overlap to find related sessions, returning only high-confidence items as `matched_sessions`.
+- `report` 估算 raw context 與 recommended context 的大小差異。
+- `report` estimates the size difference between raw context and recommended context.
 
-## 常見問題 / FAQ
+## FAQ
 
-| 問題 | 解法 |
+| 問題 / Question | 回答 / Answer |
 |---|---|
-| Copilot CLI 找不到這個 skill | 確認檔案在 `~\.copilot\skills\session-recall\SKILL.md`，重開 Copilot CLI |
-| 第一次用沒有索引 | 取得同意後執行 `install.ps1`，預設匯入最多 200 筆 |
-| 終端機中文顯示亂碼 | 只是 console 顯示問題，檔案本身是 UTF-8，用檔案檢視即可確認 |
-| 搜尋結果太少 | 先確認已跑過 `sync-copilot`，再用短一點的關鍵字重試 |
-| raw events 什麼時候變成 session | 執行 `compact-events`，或安裝排程 `install-session-recall-scheduler.ps1` |
-| Graph 沒資料 | 先要有至少一筆 session，再執行 `graph` |
-| 想要語意搜尋（不只是關鍵字） | 目前是 FTS5 + 關鍵字重疊，之後可以接 sqlite-vec 或 LanceDB |
-| 想要自動攔截每次對話 | 需要平台提供 hook；目前靠 SKILL.md 的觸發詞讓 agent 主動呼叫 |
-| `--report` 一直報錯 | 確認同時有加 `--compare`，`--report` 不能單獨使用 |
-| 找不到 Python | 安裝 Python 3，或設定環境變數 `SESSION_RECALL_PYTHON` 指向你的 `python.exe` |
+| Copilot CLI 沒有載入 skill？ / Copilot CLI did not load the skill? | 確認路徑是 `~\.copilot\skills\session-recall\SKILL.md`，然後重啟 Copilot CLI / Check the path and restart Copilot CLI |
+| 沒有建立索引？ / No index was created? | 執行 `install.ps1` 或 `session-recall.ps1 init` / Run `install.ps1` or `session-recall.ps1 init` |
+| `--report` 報錯？ / `--report` errors? | `--report` 必須搭配 `--compare` / `--report` must be used with `--compare` |
+| 找不到 Python？ / Python cannot be found? | 安裝 Python 3，或設定 `SESSION_RECALL_PYTHON` 指向 `python.exe` / Install Python 3 or set `SESSION_RECALL_PYTHON` to `python.exe` |
+| 可以分享本機索引嗎？ / Can I share the local index? | 不建議，索引可能含有私人對話 / No, it may contain private conversation data |

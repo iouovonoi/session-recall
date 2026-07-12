@@ -1,78 +1,83 @@
-# Recall 效果驗證 / Validating Session Recall
+# 驗證 Session Recall / Validating Session Recall
 
-這份文件回答兩件事：recall 有沒有真的找到相關內容？注入的 context 有沒有變小？
-全部在本機跑，不上傳資料、不做遙測。
+這份文件回答兩個問題：recall 是否真的找到相關歷史？建議注入的 context 是否比 raw context 小？
 
-This doc answers two questions: does recall actually find relevant history, and does the injected
-context shrink? Everything runs locally — no upload, no telemetry.
+This document answers two questions: does recall actually find relevant history, and is the recommended injected context smaller than raw context?
 
-## 目前實測數值（參考基準） / Current observed values (reference snapshot)
+所有測試都在本機執行，不上傳、不遙測。
 
-> 來自一份真實本機索引（約 390 筆 session）+ 少量真實查詢，**僅供參考，不是保證值**，公開引用前請在自己的資料重新跑一次。
-> Measured on one real local index (~390 sessions) with a small real query set. **Reference only, not
-> guaranteed** — re-run on your own data before quoting publicly.
+Everything runs locally with no upload and no telemetry.
 
-| 測試 Test | 命中/信心 Hit / confidence | 原始 → 建議注入 Raw → recommended | 省下 Savings |
-|---|---|---|---|
-| 單次 `--report`（查詢：「session recall 驗證功能 token 節省」） Single `--report` query | 2 個高信心 session 2 high-confidence matches | 18382 字 chars → 505 字 chars（≈4596 → 127 tokens） | **97.2%** |
-| 3 筆查詢 `benchmark`（2 筆相關 + 1 筆刻意不相關） 3-query benchmark (2 relevant + 1 irrelevant) | `hit_at_1 = hit_at_5 = 2/3`（66.7%） | 平均 avg | **64.2%**（不相關查詢正確回報 0% correctly reports 0% when irrelevant） |
+## 目前觀察值 / Current Observed Values
 
-**結論 Takeaway**：有相關 session 時，省下幅度大致在 **60–97%**；沒有相關內容時，工具會老實說「沒找到」，不會硬湊分數。
-When a relevant session exists, savings land around **60–97%**; when nothing is relevant, the tool
-honestly reports no match instead of forcing a low-confidence result.
+以下數字來自一個真實本機索引與小型查詢集，只能當作參考。公開引用前，請在自己的資料上重跑。
 
-## 怎麼產生報告 / How to generate a report
+The numbers below come from one real local index and a small query set. Treat them as reference values only. Re-run on your own data before quoting them publicly.
+
+| 測試 / Test | 命中與信心 / Hit and confidence | Raw to recommended | 節省 / Savings |
+|---|---|---:|---:|
+| 單次 `--report` 查詢 / Single `--report` query | 2 個高信心匹配 / 2 high-confidence matches | 18,382 chars to 505 chars | **97.2%** |
+| 3 筆 `benchmark` / 3-query benchmark | `hit_at_1 = hit_at_5 = 2/3` | average | **64.2%** |
+
+重點：有相關 session 時，建議 context 通常明顯小於 raw context；沒有相關內容時，工具應回報無匹配，而不是硬塞低信心結果。
+
+Takeaway: when relevant sessions exist, recommended context is usually much smaller than raw context. When nothing relevant exists, the tool should report no match instead of forcing a low-confidence result.
+
+## 產生 report / How to Generate a Report
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" sync-copilot --limit 50 --compare "目前問題" --compare-limit 5 --report
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" sync-copilot --limit 50 --compare "session recall validation" --compare-limit 5 --report
 ```
 
-- `--report` 一定要搭配 `--compare`，沒有就會報錯退出。`--report` always requires `--compare`, otherwise it errors out.
-- `--max-context-chars`（預設 2500）限制 `recommended_context` 大小；超過時先截斷最低分 session 的摘要，還不夠才整個捨棄該 session，高分 session 永遠優先保留。
-  `--max-context-chars` (default 2500) caps `recommended_context` size; the lowest-score session's summary is trimmed first, then dropped entirely if still too big — higher-score sessions are always kept.
+- `--report` 必須搭配 `--compare`，否則會報錯。
+- `--report` always requires `--compare`; otherwise it errors.
+- `--max-context-chars` 預設是 `2500`，會限制 `recommended_context` 的大小。
+- `--max-context-chars` defaults to `2500` and caps the size of `recommended_context`.
 
-## 欄位對照表 / Field reference
+## 欄位參考 / Field Reference
 
-| 欄位 Field | 意思 Meaning |
+| 欄位 / Field | 意義 / Meaning |
 |---|---|
-| `context_used` | 有沒有找到高信心 session Whether a high-confidence match was found |
-| `recommended_context` | 建議注入的精簡內容（title/essence/summary/topics/matched_terms/reason），不含完整對話原文 Trimmed metadata only, no raw turns |
-| `raw_context_chars` / `estimated_raw_tokens` | 原始內容字數/估算 token Raw content size |
-| `recommended_context_chars` / `estimated_recommended_tokens` | 建議注入內容字數/估算 token Recommended context size |
-| `estimated_tokens_saved` / `estimated_savings_percent` | 省下多少；沒命中時一律 0 How much saved; always 0 when no match |
+| `context_used` | 是否找到高信心匹配 / Whether a high-confidence match was found |
+| `recommended_context` | 建議注入的精簡 metadata，不含完整 raw turns / Trimmed metadata only, without full raw turns |
+| `raw_context_chars` / `estimated_raw_tokens` | raw context 的大小與粗略 token 估算 / Raw context size and rough token estimate |
+| `recommended_context_chars` / `estimated_recommended_tokens` | 建議 context 的大小與粗略 token 估算 / Recommended context size and rough token estimate |
+| `estimated_tokens_saved` / `estimated_savings_percent` | 估計節省量；無匹配時為 0 / Estimated savings; 0 when there is no match |
 
-**token 估算只是粗估**：`估算 token = ceil(字數 / 4)`，不是真正的 tokenizer，中文密度可能不同，不能當作精準計費數字。
-**Token estimate is rough only**: `estimated_tokens = ceil(chars / 4)`. Not a real tokenizer — don't
-present it as exact billing cost.
+token 估算公式是 `ceil(chars / 4)`。這只是粗估，不是精準計費或 tokenizer 結果。
 
-## 自測用 benchmark / Self-test benchmark
+The token estimate is `ceil(chars / 4)`. It is only a rough estimate, not exact billing or tokenizer output.
+
+## 自測 benchmark / Self-Test Benchmark
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" benchmark path\to\testset.jsonl
 ```
 
-JSONL 每行一筆測試 / one test case per line:
+JSONL 每行一筆測試：
+
+One test case per JSONL line:
 
 ```json
-{"query": "問題文字", "expected_session_ids": ["session-id-1"], "note": "可選說明"}
+{"query": "session recall validation", "expected_session_ids": ["session-id-1"], "note": "known relevant session"}
 ```
 
-| 輸出欄位 Output field | 意思 Meaning |
+| 輸出欄位 / Output field | 意義 / Meaning |
 |---|---|
-| `queries_total` | 測試題數 Number of test cases |
-| `context_used_count` | 有命中的題數 Cases with a match |
-| `hit_at_1` / `hit_at_5` | 命中第 1 名 / 前 5 名的題數 Correct in top-1 / top-5 |
-| `average_estimated_savings_percent` | 平均省下比例 Average savings estimate |
-| `average_recommended_context_tokens` | 平均注入內容大小 Average injected size |
+| `queries_total` | 測試筆數 / Number of test cases |
+| `context_used_count` | 有找到匹配的案例數 / Cases with a match |
+| `hit_at_1` / `hit_at_5` | top-1 / top-5 是否命中預期 session / Correct in top-1 or top-5 |
+| `average_estimated_savings_percent` | 平均估計節省比例 / Average estimated savings |
+| `average_recommended_context_tokens` | 平均建議注入 token 數 / Average recommended context tokens |
 
-只用於公開發文前自測/截圖，不建議放進一般流程；測試集用自己真實的查詢，公開分享前記得拿掉個人內容。
-For self-testing / screenshots only, not part of normal usage — build the JSONL from your own real
-queries and strip personal content before sharing publicly.
+benchmark 適合自測或截圖，不是正常使用流程的一部分。分享前請移除個人內容。
 
-## 哪些宣稱合理、哪些不行 / What's a reasonable claim
+The benchmark is for self-testing or screenshots. It is not part of normal usage. Strip personal content before sharing.
 
-| 可以說 OK to say | 不要說 Don't say |
+## 合理說法 / Reasonable Claims
+
+| 可以說 / OK to say | 不要說 / Do not say |
 |---|---|
-| 「這組查詢裡，N% 找到高信心 session，注入內容約小了 X%（粗估）」 "For this query set, N% had a high-confidence match, and injected context was ~X% smaller (rough estimate)" | 「省下確切 N 個 token / N 元」 An exact token/dollar amount saved |
-| 數字來自特定本機索引與測試集 Numbers are specific to one local index/test set | 這些數字適用所有情境或工作型態 These numbers generalize to all workloads |
-| | 安裝人數或使用量（此工具不追蹤） Install/usage counts (not tracked) |
+| 「在這組查詢中，N% 有高信心匹配，建議 context 約少 X%。」 / "For this query set, N% had high-confidence matches and injected context was about X% smaller." | 「一定能省 N tokens 或 N 元。」 / "It always saves exactly N tokens or N dollars." |
+| 「數字依本機索引與測試集而變。」 / "Numbers depend on the local index and query set." | 「這些數字可泛化到所有使用者。」 / "These numbers generalize to all users." |
+| 「此工具不追蹤安裝數或使用數。」 / "This tool does not track installs or usage." | 「有全域使用統計。」 / "There are global usage stats." |

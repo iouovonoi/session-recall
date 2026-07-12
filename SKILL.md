@@ -11,67 +11,70 @@ allowed-tools:
 
 # Session Recall
 
-把 Copilot CLI 原生 `session-store.db` 當作唯一資料來源，同步成本機可搜尋的 session 摘要索引，
-用來判斷目前對話有沒有相似的過去 session。這是 **retrieval 工具**，不是每日人工整理 memory 的工具。
-資料只存在使用者本機 `~/SessionRecall`，不上傳雲端。
+Session Recall 會把 Copilot CLI 的本機 session store 同步到 `~\SessionRecall`，建立可搜尋的本機索引。它適合用來找回過去相似對話、產生 context pack、或輸出 memory graph。
 
-> 完整安裝細節、指令列表、FAQ、JSON 格式，都在 `REFERENCE.md`；一般使用者可先看 `README.md`。
-> 只有 troubleshoot、首次安裝、或使用者明確要細節時才用 view 工具查閱，不要整段塞進 context。
+Session Recall synchronizes Copilot CLI's local session store into `~\SessionRecall` and builds a searchable local index. Use it to recall similar past conversations, generate context packs, or output a memory graph.
 
-## 觸發詞
+## 觸發時機 / Trigger
 
-中文：任何文字對話、每次對話、session recall、查之前對話、找相似session、同步copilot session、搜尋memory、匯出context、產生memory graph。
-English：any message、every turn、session recall、previous context、similar sessions、sync copilot session、search memory、context pack、memory graph。
+當使用者提到以下任一情境時使用本 skill：
 
-## 每次觸發要做的事
+Use this skill when the user mentions any of these needs:
+
+- session recall、previous context、similar sessions、search memory
+- 回想先前對話、查找過去 session、尋找相關上下文
+- sync Copilot session、context pack、memory graph
+- 同步 Copilot session、匯出 context pack、建立記憶關聯圖
+
+## 主要指令 / Main Command
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\scripts\session-recall.ps1" sync-copilot --limit 50 --compare "<current message>" --compare-limit 5
 ```
 
-只需要看回傳的這 3 個欄位：
+## 如何使用結果 / How to Use the Result
 
-| 欄位 | 意思 |
+優先看這三個欄位：
+
+Start with these three fields:
+
+| 欄位 / Field | 意義 / Meaning |
 |---|---|
-| `compare.context_used` | 有沒有找到高信心的過去 session |
-| `compare.matched_sessions` | 高信心相關 session，可以拿來回答 |
-| `compare.candidate_sessions` | 低信心候選，只能當提示，不能宣稱已參照 |
+| `compare.context_used` | 是否找到高信心匹配 / Whether a high-confidence match was found |
+| `compare.matched_sessions` | 可注入的相關 session / Relevant sessions suitable for context |
+| `compare.candidate_sessions` | 低信心候選，只作參考 / Lower-confidence candidates for reference only |
 
-其餘欄位（`diagnostics`、`fallback_sessions`、`quality_flags`）細節在 `REFERENCE.md`，非必要不用看。
+如果 `context_used=true`，可以摘要 `matched_sessions` 中最相關的 1 到 2 筆資訊作為回覆上下文。
 
-限制：這仍依賴 Copilot 的技能選擇器與模型自律，不是底層強制攔截。若平台提供真正的 message hook，應該直接在 hook 呼叫 `sync-copilot --compare`。
+If `context_used=true`, summarize the top 1-2 items from `matched_sessions` as context for the response.
 
-## 省 token：同一 session 內只需載入一次
+如果 `context_used=false`，不要假裝找到記憶；可簡短說明目前沒有高信心相關 session。
 
-- 這個 session 稍早已經注入過本檔案內容的話，之後不要重複整段貼出，只輸出一句提示（例如
-  「（session-recall 已載入，執行 sync-copilot --compare）」），直接呼叫上面的核心指令。
-- 只有換新 session、或使用者明確問起用法規則時，才重新完整讀一次本檔案。
-- 需要完整功能（search / context-pack / graph / log-event / report / benchmark）或 FAQ 時，才用 view 讀 `REFERENCE.md`。
+If `context_used=false`, do not pretend memory was found. Briefly state that no high-confidence related session was available.
 
-## 首次安裝（精簡版）
+## 安裝 / Install
 
-`~/SessionRecall/memory.sqlite` 不存在時，要先跟使用者說明：會建立哪些本機檔案、會讀取
-`~\.copilot\session-store.db`、會匯入既有 session 摘要到 `~/SessionRecall`。取得同意才執行：
+如果索引不存在，先請使用者同意，然後執行：
+
+If the index does not exist, ask for user consent first, then run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.copilot\skills\session-recall\install.ps1"
 ```
 
-其他安裝參數與分享規則見 `README.md` / `REFERENCE.md`，不重複列出。
+## 隱私規則 / Privacy Rules
 
-## 建議操作流程
+- 只讀取使用者自己的 `~\.copilot\session-store.db`。
+- Read only the user's own `~\.copilot\session-store.db`.
+- 預設輸出都在 `~\SessionRecall`。
+- Generated data is stored under `~\SessionRecall` by default.
+- 不要分享 `~\SessionRecall`、`~\.copilot\session-store.db`、`~\.copilot\session-state` 或其他 memory store。
+- Do not share `~\SessionRecall`, `~\.copilot\session-store.db`, `~\.copilot\session-state`, or other memory stores.
 
-1. 觸發時先確認 `~/SessionRecall/memory.sqlite` 存在；不存在就走上面的首次安裝。
-2. 已初始化 → 呼叫 `sync-copilot --compare "<current message>"`。
-3. `context_used=true` → 簡短說明參照了哪些過去脈絡（1-2 個 `matched_sessions.title`）。
-4. `context_used=false` → 說明沒找到明確相關歷史，不可把 `candidate_sessions` / `fallback_sessions` 說成已參照。
-5. 其他需求對應：找相似內容 → `search`；當上下文 → `context-pack`；關聯圖 → `graph`（用法見 `REFERENCE.md`）。
+## 更多文件 / More Documentation
 
-## 需要更多細節時查閱
-
-| 主題 | 位置 |
+| 文件 / File | 用途 / Purpose |
 |---|---|
-| 完整功能、指令一覽、compare/report 欄位 | `REFERENCE.md` |
-| 驗證數據（命中率、省多少 token） | `docs/validation.md` |
-| 與 session-to-memory 的分工、JSON 格式、輸出資料夾、FAQ | `REFERENCE.md` |
-| 安裝參數細節、分享規則 | `README.md` / `REFERENCE.md` |
+| `README.md` | 安裝與日常使用 / Install and daily use |
+| `REFERENCE.md` | 完整欄位、FAQ、內部設計 / Full fields, FAQ, internals |
+| `docs/validation.md` | report 與 benchmark 說明 / Report and benchmark explanation |
