@@ -8,6 +8,14 @@ Session Recall reads your own `~\.copilot\session-store.db` and builds a local, 
 
 Everything stays on your machine and is never uploaded by this tool.
 
+## DeepWiki
+
+你也可以在 DeepWiki 上閱讀自動產生的 repo 說明與架構導覽：
+
+You can also read the auto-generated repo documentation and architecture guide on DeepWiki:
+
+[DeepWiki: iouovonoi/session-recall](https://deepwiki.com/iouovonoi/session-recall)
+
 ## 實測概覽 / Results at a glance
 
 以下數字來自一個真實本機索引的參考測試。完整說明請看 [docs/validation.md](docs/validation.md)。
